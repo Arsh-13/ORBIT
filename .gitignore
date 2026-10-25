@@ -1,0 +1,47 @@
+# ---- Secrets & credentials: never commit ----
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+secrets/
+credentials*.json
+*.secret
+
+# ---- Local data (ORBIT will create SQLite databases in later milestones) ----
+*.sqlite
+*.sqlite3
+*.db
+data/local/
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ---- Node / frontend ----
+node_modules/
+dist/
+*.local
+npm-debug.log*
+
+# ---- OS & editors ----
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+*.log

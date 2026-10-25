@@ -1,0 +1,4 @@
+Lecture 1 - Introduction to Data Structures
+- Arrays store items next to each other in memory.
+- Linked lists store items anywhere, connected by pointers.
+- Hash tables give near-constant-time lookups.
