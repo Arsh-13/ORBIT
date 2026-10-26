@@ -18,6 +18,10 @@ type ScanState =
 
 type Theme = 'light' | 'dark'
 
+function errorText(err: unknown): string {
+  return err instanceof Error ? err.message : String(err)
+}
+
 function useTheme(): [Theme, () => void] {
   const [theme, setTheme] = useState<Theme>(() =>
     document.documentElement.dataset.theme === 'light' ? 'light' : 'dark',
@@ -40,7 +44,10 @@ export default function App() {
   const [actionError, setActionError] = useState<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
 
-  /** Scan the workspace. `quiet` keeps the current results on screen while refreshing. */
+  /**
+   * Scan the workspace. `quiet` keeps the current results on screen while refreshing;
+   * a quiet scan that fails throws, so the caller can show a banner instead of the error page.
+   */
   const runScan = useCallback(async (quiet = false) => {
     abortRef.current?.abort()
     const controller = new AbortController()
@@ -51,23 +58,37 @@ export default function App() {
       setState({ status: 'done', report, scannedAt: new Date().toISOString() })
     } catch (err) {
       if (controller.signal.aborted) return
-      setState({ status: 'error', message: err instanceof Error ? err.message : String(err) })
+      if (quiet) throw err
+      setState({ status: 'error', message: errorText(err) })
     }
   }, [])
 
   useEffect(() => () => abortRef.current?.abort(), [])
 
-  /** Run a preference change, then refresh the results so the new recommendation shows. */
+  // A ref (not state) so two clicks in the same instant both see the first one is running.
+  const actionRunning = useRef(false)
+
+  /** Run ONE preference change at a time, then refresh the results so the new recommendation shows. */
   const runAction = useCallback(
     async (key: string, action: () => Promise<unknown>) => {
+      if (actionRunning.current) return
+      actionRunning.current = true
       setBusy(key)
       setActionError(null)
       try {
-        await action()
-        await runScan(true)
-      } catch (err) {
-        setActionError(err instanceof Error ? err.message : String(err))
+        try {
+          await action()
+        } catch (err) {
+          setActionError(errorText(err))
+          return
+        }
+        try {
+          await runScan(true)
+        } catch (err) {
+          setActionError(`Your change was saved, but the results couldn't refresh: ${errorText(err)} Press "Scan again".`)
+        }
       } finally {
+        actionRunning.current = false
         setBusy(null)
       }
     },
@@ -128,12 +149,14 @@ export default function App() {
             <KeepRulesEditor
               rules={report.keep_rules}
               saving={busy === 'rules'}
+              disabled={busy !== null}
               onSave={(rules: KeepRules) => runAction('rules', () => saveKeepRules(rules))}
             />
             <Recommendations
               recommendations={report.recommendations}
               groups={report.duplicate_groups}
               busyGroup={busy}
+              disabled={busy !== null}
               onChoose={(sha, path) => runAction(sha, () => choosePreferredCopy(sha, path))}
               onReset={(sha) => runAction(sha, () => resetPreferredCopy(sha))}
             />

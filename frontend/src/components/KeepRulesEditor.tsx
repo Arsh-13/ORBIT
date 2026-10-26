@@ -3,25 +3,34 @@ import type { KeepRules } from '../types'
 
 interface Props {
   rules: KeepRules
-  saving: boolean
+  saving: boolean // this editor's save is running
+  disabled?: boolean // another action is running, so wait
   onSave: (rules: KeepRules) => void
 }
 
 type ListKey = keyof KeepRules
 
+/** True when two rule sets contain the same folders in the same order. */
+function sameRules(a: KeepRules, b: KeepRules): boolean {
+  const same = (x: string[], y: string[]) => x.length === y.length && x.every((v, i) => v === y[i])
+  return same(a.preferred_folders, b.preferred_folders) && same(a.avoid_folders, b.avoid_folders)
+}
+
 /** Edit the folders ORBIT prefers or avoids. Saving only updates ORBIT's preferences. */
-export function KeepRulesEditor({ rules, saving, onSave }: Props) {
+export function KeepRulesEditor({ rules, saving, disabled = false, onSave }: Props) {
+  const locked = saving || disabled
   const [draft, setDraft] = useState<KeepRules>(rules)
   const [inputs, setInputs] = useState<Record<ListKey, string>>({ preferred_folders: '', avoid_folders: '' })
   const [lastSaved, setLastSaved] = useState(rules)
 
-  // When fresh rules arrive from the server (after a save or rescan), reset the draft.
-  if (rules !== lastSaved) {
+  // Reset the draft only when the saved rules actually CHANGE (e.g. after Save). Every rescan
+  // sends a new rules object with the same contents, and that must not wipe unsaved edits.
+  if (!sameRules(rules, lastSaved)) {
     setLastSaved(rules)
     setDraft(rules)
   }
 
-  const dirty = JSON.stringify(draft) !== JSON.stringify(rules)
+  const dirty = !sameRules(draft, rules)
 
   const add = (key: ListKey) => {
     const value = inputs[key].trim()
@@ -105,11 +114,11 @@ export function KeepRulesEditor({ rules, saving, onSave }: Props) {
 
       <div className="rules-actions">
         {dirty && (
-          <button className="button button-small button-ghost" onClick={() => setDraft(rules)} disabled={saving}>
+          <button className="button button-small button-ghost" onClick={() => setDraft(rules)} disabled={locked}>
             Discard changes
           </button>
         )}
-        <button className="button button-primary button-small" onClick={() => onSave(draft)} disabled={!dirty || saving}>
+        <button className="button button-primary button-small" onClick={() => onSave(draft)} disabled={!dirty || locked}>
           {saving ? 'Saving…' : 'Save rules'}
         </button>
       </div>

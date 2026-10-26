@@ -139,10 +139,12 @@ cd ~/Documents/ORBIT/backend
 .venv/bin/pytest -v
 ```
 
-Frontend type-check, production build, and lint:
+Frontend component tests (Vitest + React Testing Library, no server needed), type-check,
+production build, and lint:
 
 ```bash
 cd ~/Documents/ORBIT/frontend
+npm test
 npm run build
 npm run lint
 ```

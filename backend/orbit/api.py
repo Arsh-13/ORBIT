@@ -26,7 +26,7 @@ from pydantic import BaseModel, Field
 
 from . import __version__, config
 from .duplicates import ScanReport, build_report
-from .preferences import KeepRules, PreferenceError, PreferenceStore, normalize_rules
+from .preferences import MAX_FOLDERS, KeepRules, PreferenceError, PreferenceStore, normalize_rules
 from .recommend import Recommendation, recommend_all
 from .safety import PathSafetyError, resolve_inside
 from .scanner import ScanRootError, hash_file, scan_directory
@@ -55,8 +55,8 @@ class PreferencesResponse:
 
 
 class RulesIn(BaseModel):
-    preferred_folders: list[str] = Field(default_factory=list, max_length=50)
-    avoid_folders: list[str] = Field(default_factory=list, max_length=50)
+    preferred_folders: list[str] = Field(default_factory=list, max_length=MAX_FOLDERS)
+    avoid_folders: list[str] = Field(default_factory=list, max_length=MAX_FOLDERS)
 
 
 class ChoiceIn(BaseModel):
@@ -114,19 +114,15 @@ def create_app(
             raise HTTPException(status_code=400, detail=f"Rejected path: {exc}")
 
         try:
-            result = scan_directory(target)
+            # Paths are always relative to the workspace root, even for a subfolder scan, so
+            # keep rules ("downloads") and saved choices match the same way in every scan.
+            result = scan_directory(target, relative_to=sample_root)
         except ScanRootError as exc:
             raise HTTPException(status_code=404, detail=str(exc))
 
         report = build_report(result)
         rules = store.get_rules()
-        # Choices are saved with paths relative to the workspace root; a subfolder scan
-        # uses paths relative to that subfolder, so translate them.
-        prefix = target.relative_to(sample_root.resolve()).as_posix()
-        choices = store.get_choices()
-        if prefix != ".":
-            choices = {h: p.removeprefix(prefix + "/") for h, p in choices.items() if p.startswith(prefix + "/")}
-        recommendations = recommend_all(report.duplicate_groups, report.files, rules, choices)
+        recommendations = recommend_all(report.duplicate_groups, report.files, rules, store.get_choices())
         return ScanResponse(**vars(report), recommendations=recommendations, keep_rules=rules)
 
     @app.get("/api/preferences", response_model=PreferencesResponse)

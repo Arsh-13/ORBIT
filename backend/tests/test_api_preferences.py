@@ -164,3 +164,51 @@ def test_subfolder_scan_translates_saved_choices(client: TestClient, workspace: 
 def test_database_inside_workspace_is_refused(workspace: Path):
     with pytest.raises(ValueError):
         create_app(sample_root=workspace, db_path=workspace / "orbit.sqlite3")
+
+
+def _write(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text)
+
+
+def test_subfolder_scan_uses_workspace_relative_paths(client: TestClient):
+    body = client.get("/api/scan", params={"folder": "copies"}).json()
+    assert {f["relative_path"] for f in body["files"]} == {"copies/report (1).txt", "copies/IMG_0001.jpg"}
+
+
+def test_keep_rules_apply_the_same_way_on_subfolder_scans(client: TestClient, workspace: Path):
+    # Regression (PR review, bug 1): rules are written relative to the workspace root, so a
+    # subfolder scan must give the same recommendation as a whole-workspace scan.
+    _write(workspace / "box" / "downloads" / "n.txt", "same bytes")
+    _write(workspace / "box" / "keep" / "n.txt", "same bytes")
+    client.put("/api/preferences/rules", json={"preferred_folders": [], "avoid_folders": ["box/downloads"]})
+
+    def pick(params: dict) -> dict:
+        recs = client.get("/api/scan", params=params).json()["recommendations"]
+        return next(r for r in recs if any(c["relative_path"].endswith("n.txt") for c in r["copies"]))
+
+    whole, sub = pick({}), pick({"folder": "box"})
+    assert whole["preferred_path"] == sub["preferred_path"] == "box/keep/n.txt"
+    assert sub["decided_by"] == ["Avoided folder"]
+
+    # A top-level "downloads" rule must NOT match "box/downloads" just because we scanned "box".
+    client.put("/api/preferences/rules", json={"preferred_folders": [], "avoid_folders": ["downloads"]})
+    assert pick({"folder": "box"})["decided_by"] != ["Avoided folder"]
+
+
+def test_saved_choice_applies_on_subfolder_scans(client: TestClient, workspace: Path):
+    _write(workspace / "box" / "a" / "n.txt", "same bytes")
+    _write(workspace / "box" / "b" / "n.txt", "same bytes")
+    sha = sha_of(workspace / "box" / "a" / "n.txt")
+    client.put("/api/preferences/choices", json={"sha256": sha, "relative_path": "box/b/n.txt"})
+    rec = next(r for r in client.get("/api/scan", params={"folder": "box"}).json()["recommendations"] if r["sha256"] == sha)
+    assert rec["source"] == "user" and rec["preferred_path"] == "box/b/n.txt"
+
+
+def test_folder_list_limit_matches_validation(client: TestClient):
+    from orbit.preferences import MAX_FOLDERS
+
+    too_many = [f"f{i}" for i in range(MAX_FOLDERS + 1)]
+    assert client.put("/api/preferences/rules", json={"preferred_folders": too_many}).status_code == 422
+    ok = [f"f{i}" for i in range(MAX_FOLDERS)]
+    assert client.put("/api/preferences/rules", json={"preferred_folders": ok}).status_code == 200

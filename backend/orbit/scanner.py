@@ -104,8 +104,14 @@ def _describe_os_error(exc: OSError) -> str:
     return f"Could not read file ({exc.strerror or type(exc).__name__})"
 
 
-def scan_directory(directory: Path, *, max_files: int = MAX_FILES_PER_SCAN) -> ScanResult:
+def scan_directory(
+    directory: Path, *, max_files: int = MAX_FILES_PER_SCAN, relative_to: Path | None = None
+) -> ScanResult:
     """Scan `directory` recursively (read-only) and return file metadata and hashes.
+
+    `relative_to` controls how `relative_path` is written. By default paths are relative to
+    `directory`. The API passes the workspace root, so a subfolder scan still reports
+    "downloads/a.pdf" rather than "a.pdf", one consistent way of naming files everywhere.
 
     Hidden entries (names starting with ".", e.g. .DS_Store) are ignored.
     Raises ScanRootError if `directory` doesn't exist, isn't a folder, or is a symlink.
@@ -118,6 +124,9 @@ def scan_directory(directory: Path, *, max_files: int = MAX_FILES_PER_SCAN) -> S
         raise ScanRootError("The path to scan is not a folder")
 
     root = directory.resolve()
+    base = relative_to.resolve() if relative_to is not None else root
+    if not root.is_relative_to(base):
+        raise ValueError("relative_to must contain the scanned folder")
     result = ScanResult(root=str(root))
     pending: list[Path] = [root]
 
@@ -127,14 +136,14 @@ def scan_directory(directory: Path, *, max_files: int = MAX_FILES_PER_SCAN) -> S
         # Defence in depth: double-check that every folder we enter is still inside root
         # (guards against a folder being swapped for a symlink mid-scan).
         if not Path(os.path.realpath(current)).is_relative_to(root):
-            result.skipped.append(ScanIssue(_rel(current, root), "Folder resolves outside the scan root"))
+            result.skipped.append(ScanIssue(_rel(current, base), "Folder resolves outside the scan root"))
             continue
 
         try:
             with os.scandir(current) as iterator:
                 entries = sorted(iterator, key=lambda e: e.name)
         except OSError as exc:
-            result.errors.append(ScanIssue(_rel(current, root) or ".", _describe_os_error(exc)))
+            result.errors.append(ScanIssue(_rel(current, base) or ".", _describe_os_error(exc)))
             continue
 
         for entry in entries:
@@ -142,7 +151,7 @@ def scan_directory(directory: Path, *, max_files: int = MAX_FILES_PER_SCAN) -> S
                 continue
 
             entry_path = Path(entry.path)
-            rel = _rel(entry_path, root)
+            rel = _rel(entry_path, base)
 
             try:
                 if entry.is_symlink():

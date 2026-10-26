@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
@@ -7,6 +8,8 @@ const API_TARGET = process.env.ORBIT_API_URL ?? 'http://127.0.0.1:8000'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  // `npm test` runs the component tests in a simulated browser (jsdom).
+  test: { environment: 'jsdom' },
   server: {
     // Listen on this machine only, so nobody else on your Wi-Fi can open it.
     host: '127.0.0.1',

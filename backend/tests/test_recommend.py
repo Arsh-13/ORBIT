@@ -263,3 +263,29 @@ def test_recommend_refuses_a_single_file_group():
     group = DuplicateGroup(1, HASH_A, 100, 1, 0, ["a.txt"])
     with pytest.raises(ValueError):
         recommend(group, [rec("a.txt")], DEFAULTS)
+
+
+def test_oldest_reason_is_honest_when_timestamps_tie():
+    # Regression (PR review, bug 5): a and b are within the 2 s tolerance, c is much newer.
+    # The oldest rule drops c, then the alphabetical tie-break picks a, even though b is 1.5 s older.
+    files = [
+        rec("x/a.txt", "2026-01-01T00:00:01.500000+00:00"),
+        rec("y/b.txt", "2026-01-01T00:00:00+00:00"),
+        rec("z/c.txt", "2026-01-01T00:01:40+00:00"),
+    ]
+    r = recommend_for(files, NO_RULES)
+    assert r.preferred_path == "x/a.txt"
+    assert r.decided_by == ["Oldest copy", "Alphabetical tie-break"]
+    assert not any("It's the oldest copy" in reason for reason in r.reasons)
+    assert "one of the oldest copies" in r.reasons[0]
+
+
+def test_oldest_reason_when_oldest_rule_alone_decides():
+    r = recommend_for([rec("a/x.txt", MAR), rec("b/x.txt", JAN)], NO_RULES)
+    assert r.reasons == [r.reasons[0]] and r.reasons[0].startswith("It's the oldest copy")
+
+
+def test_recommend_all_gives_same_result_as_one_by_one():
+    files = [rec("downloads/a.txt", sha=HASH_A), rec("documents/a (1).txt", sha=HASH_A), rec("x/b.txt", sha=HASH_B), rec("y/b copy.txt", sha=HASH_B), rec("unique.txt", sha="c" * 64)]
+    groups = find_duplicate_groups(files)
+    assert recommend_all(groups, files, DEFAULTS) == [recommend(g, files, DEFAULTS) for g in groups]

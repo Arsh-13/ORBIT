@@ -165,3 +165,13 @@ def test_scan_is_read_only(workspace: Path):
     scan_directory(workspace)
     scan_directory(workspace)
     assert snapshot() == before
+
+
+def test_relative_to_writes_paths_from_a_parent_folder(workspace: Path):
+    result = scan_directory(workspace / "copies", relative_to=workspace)
+    assert sorted(f.relative_path for f in result.files) == ["copies/IMG_0001.jpg", "copies/report (1).txt"]
+
+
+def test_relative_to_must_contain_the_scanned_folder(workspace: Path, outside: Path):
+    with pytest.raises(ValueError):
+        scan_directory(workspace, relative_to=outside)

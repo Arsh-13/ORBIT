@@ -21,8 +21,10 @@ makes it easy to test and easy to reuse later, e.g. from a phone command.
 from __future__ import annotations
 
 import re
+from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import PurePosixPath
 from typing import Callable, Literal
 
 from .duplicates import DuplicateGroup
@@ -84,14 +86,9 @@ _NAME_PATTERNS: list[tuple[re.Pattern[str], str]] = [
 ]
 
 
-def _stem(name: str) -> str:
-    base, dot, _ext = name.rpartition(".")
-    return (base if dot and base else name).casefold().strip()
-
-
 def name_issues(name: str) -> list[str]:
     """List the reasons a filename looks like a copy or an auto-generated name."""
-    stem = _stem(name)
+    stem = PurePosixPath(name).stem.casefold().strip()  # "Copy of Notes.txt" -> "copy of notes"
     return [message for pattern, message in _NAME_PATTERNS if pattern.search(stem)]
 
 
@@ -124,11 +121,14 @@ def _timestamp(f: FileRecord) -> float:
     return datetime.fromisoformat(f.modified_at).timestamp()
 
 
+# Modification times this close together count as "the same time" (copies made in one go).
+OLDEST_TOLERANCE_SECONDS = 2.0
+
 RULES: tuple[Rule, ...] = (
     Rule("preferred_folder", "Preferred folder", "high", _preferred_rank),
     Rule("avoid_folder", "Avoided folder", "high", lambda f, r: 1.0 if _avoided_folder(f, r) else 0.0),
     Rule("filename", "Filename", "medium", lambda f, r: float(len(name_issues(f.name)))),
-    Rule("oldest", "Oldest copy", "low", lambda f, r: _timestamp(f), tolerance=2.0),
+    Rule("oldest", "Oldest copy", "low", lambda f, r: _timestamp(f), tolerance=OLDEST_TOLERANCE_SECONDS),
 )
 TIEBREAK_LABEL = "Alphabetical tie-break"
 _TIEBREAK = Rule("tiebreak", TIEBREAK_LABEL, "low", lambda f, r: 0.0)
@@ -147,7 +147,8 @@ def _plural(n: int, one: str, many: str) -> str:
     return one if n == 1 else many
 
 
-def _reason(rule: Rule, winner: FileRecord, dropped: list[FileRecord], rules: KeepRules) -> str:
+def _reason(rule: Rule, winner: FileRecord, dropped: list[FileRecord], rules: KeepRules, sole: bool) -> str:
+    """Explain one step. `sole` is True when this rule narrowed the choice down to one copy."""
     n = len(dropped)
     others = _plural(n, "the other copy", f"{n} other copies")
     if rule.id == "preferred_folder":
@@ -164,9 +165,12 @@ def _reason(rule: Rule, winner: FileRecord, dropped: list[FileRecord], rules: Ke
             return f"Its name looks original; {_quote_paths(dropped)} {_plural(n, 'looks', 'look')} like a copy or an auto-generated name."
         return f"Its name has fewer copy-like markers than {_quote_paths(dropped)}."
     if rule.id == "oldest":
+        weak = "Timestamps are a weak signal, because copying or syncing can change them."
+        if sole:
+            return f"It's the oldest copy (modified {winner.modified_at[:10]}), so it's probably the original. {weak}"
         return (
-            f"It's the oldest copy (modified {winner.modified_at[:10]}), so it's probably the original. "
-            "Timestamps are a weak signal, because copying or syncing can change them."
+            f"It's one of the oldest copies; {others} {_plural(n, 'is', 'are')} newer. Copies modified within "
+            f"{OLDEST_TOLERANCE_SECONDS:g} seconds of each other count as the same age. {weak}"
         )
     return "All copies look equally good, so ORBIT picked the first one alphabetically."
 
@@ -218,6 +222,7 @@ class _RuleOutcome:
 def _apply_rules(files: list[FileRecord], rules: KeepRules) -> _RuleOutcome:
     remaining = sorted(files, key=lambda f: f.relative_path)  # sorted = deterministic
     decided_by: list[Rule | None] = []
+    left_after: list[int] = []  # how many copies were still in the running after each deciding step
     dropped_by: dict[str, Rule | None] = {}
 
     for rule in RULES:
@@ -228,6 +233,7 @@ def _apply_rules(files: list[FileRecord], rules: KeepRules) -> _RuleOutcome:
         keep = [f for f in remaining if scores[f.relative_path] <= best + rule.tolerance]
         if len(keep) < len(remaining):
             decided_by.append(rule)
+            left_after.append(len(keep))
             for f in remaining:
                 if f not in keep:
                     dropped_by[f.relative_path] = rule
@@ -235,15 +241,16 @@ def _apply_rules(files: list[FileRecord], rules: KeepRules) -> _RuleOutcome:
 
     if len(remaining) > 1:
         decided_by.append(None)
+        left_after.append(1)
         for f in remaining[1:]:
             dropped_by[f.relative_path] = None
 
     # Explain each step only now, once the final winner is known.
     winner = remaining[0]
     reasons = []
-    for rule in decided_by:
+    for rule, left in zip(decided_by, left_after):
         dropped = [f for f in files if f.relative_path in dropped_by and dropped_by[f.relative_path] is rule]
-        reasons.append(_reason(rule or _TIEBREAK, winner, dropped, rules))
+        reasons.append(_reason(rule or _TIEBREAK, winner, dropped, rules, sole=left == 1))
     return _RuleOutcome(winner, decided_by, reasons, dropped_by)
 
 
@@ -271,8 +278,12 @@ def _caveats(files: list[FileRecord], outcome: _RuleOutcome, rules: KeepRules) -
 
 
 def recommend(group: DuplicateGroup, files: list[FileRecord], rules: KeepRules, user_choice: str | None = None) -> Recommendation:
-    """Recommend the copy to keep for one duplicate group."""
-    members = sorted((f for f in files if f.sha256 == group.sha256 and f.relative_path in group.relative_paths), key=lambda f: f.relative_path)
+    """Recommend the copy to keep for one duplicate group. `files` may be all files or just the group's."""
+    paths_in_group = set(group.relative_paths)
+    members = sorted(
+        (f for f in files if f.sha256 == group.sha256 and f.relative_path in paths_in_group),
+        key=lambda f: f.relative_path,
+    )
     if len(members) < 2:
         raise ValueError("A duplicate group needs at least two files")
 
@@ -304,7 +315,7 @@ def recommend(group: DuplicateGroup, files: list[FileRecord], rules: KeepRules, 
         else:
             caveats.insert(0, f"Your earlier choice “{user_choice}” is no longer in this group, so ORBIT's rules apply again.")
 
-    oldest = _strictly_oldest(members, tolerance=2.0)
+    oldest = _strictly_oldest(members, tolerance=OLDEST_TOLERANCE_SECONDS)
     copies = [
         CopyAssessment(
             relative_path=f.relative_path,
@@ -336,4 +347,8 @@ def recommend_all(
     groups: list[DuplicateGroup], files: list[FileRecord], rules: KeepRules, choices: dict[str, str] | None = None
 ) -> list[Recommendation]:
     choices = choices or {}
-    return [recommend(group, files, rules, choices.get(group.sha256)) for group in groups]
+    # Index files by hash once, so each group only looks at its own files (fast with many files).
+    by_hash: dict[str, list[FileRecord]] = defaultdict(list)
+    for f in files:
+        by_hash[f.sha256].append(f)
+    return [recommend(group, by_hash[group.sha256], rules, choices.get(group.sha256)) for group in groups]

@@ -11,12 +11,13 @@ const CONFIDENCE_LABEL: Record<Confidence, string> = {
 interface Props {
   recommendations: Recommendation[]
   groups: DuplicateGroup[]
-  busyGroup: string | null // sha256 of the group whose action is in progress
+  busyGroup: string | null // sha256 of the group whose action is in progress (dimmed)
+  disabled: boolean // any preference action is running: wait before allowing another
   onChoose: (sha256: string, relativePath: string) => void
   onReset: (sha256: string) => void
 }
 
-export function Recommendations({ recommendations, groups, busyGroup, onChoose, onReset }: Props) {
+export function Recommendations({ recommendations, groups, busyGroup, disabled, onChoose, onReset }: Props) {
   if (recommendations.length === 0) {
     return (
       <section className="panel">
@@ -41,6 +42,7 @@ export function Recommendations({ recommendations, groups, busyGroup, onChoose, 
             rec={rec}
             sizeEach={sizeOf.get(rec.group_id) ?? 0}
             busy={busyGroup === rec.sha256}
+            disabled={disabled}
             onChoose={(path) => onChoose(rec.sha256, path)}
             onReset={() => onReset(rec.sha256)}
           />
@@ -54,12 +56,14 @@ function RecommendationCard({
   rec,
   sizeEach,
   busy,
+  disabled,
   onChoose,
   onReset,
 }: {
   rec: Recommendation
   sizeEach: number
   busy: boolean
+  disabled: boolean
   onChoose: (path: string) => void
   onReset: () => void
 }) {
@@ -112,7 +116,7 @@ function RecommendationCard({
               <button
                 className="button button-small"
                 onClick={() => onChoose(copy.relative_path)}
-                disabled={busy}
+                disabled={disabled}
                 aria-label={`Keep ${copy.relative_path} instead`}
               >
                 Keep this instead
@@ -133,7 +137,7 @@ function RecommendationCard({
           )}
         </span>
         {rec.source === 'user' && (
-          <button className="button button-small button-ghost" onClick={onReset} disabled={busy}>
+          <button className="button button-small button-ghost" onClick={onReset} disabled={disabled}>
             Use ORBIT's suggestion
           </button>
         )}
