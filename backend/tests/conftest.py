@@ -50,9 +50,19 @@ def outside(tmp_path: Path) -> Path:
     return secret_dir
 
 
+@pytest.fixture(autouse=True)
+def isolated_database(tmp_path_factory, monkeypatch) -> Path:
+    """Every test gets its own throwaway preferences database, so tests never touch the real one."""
+    db_path = tmp_path_factory.mktemp("orbit-data") / "orbit.sqlite3"
+    monkeypatch.setattr("orbit.config.DB_PATH", db_path)
+    return db_path
+
+
 @pytest.fixture
-def client(workspace: Path) -> TestClient:
-    app = create_app(sample_root=workspace, allowed_hosts=["testserver", "localhost", "127.0.0.1"])
+def client(workspace: Path, isolated_database: Path) -> TestClient:
+    app = create_app(
+        sample_root=workspace, allowed_hosts=["testserver", "localhost", "127.0.0.1"], db_path=isolated_database
+    )
     return TestClient(app)
 
 

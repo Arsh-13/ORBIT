@@ -96,5 +96,6 @@ def test_real_sample_workspace_has_expected_duplicates():
     app = create_app(sample_root=SAMPLE_WORKSPACE, allowed_hosts=["testserver"])
     body = TestClient(app).get("/api/scan").json()
     assert body["summary"]["total_files"] >= 10
-    assert body["summary"]["duplicate_groups"] == 3
+    # 3 groups from Milestone 1 + 3 added in Milestone 2 (exact membership: test_sample_workspace.py).
+    assert body["summary"]["duplicate_groups"] == 6
     assert body["errors"] == []

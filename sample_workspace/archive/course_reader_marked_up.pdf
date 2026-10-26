@@ -1,0 +1,59 @@
+%PDF-1.7
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [4 0 R 6 0 R] /Count 2 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 5 0 R /Resources << /Font << /F1 3 0 R >> >> /Annots [8 0 R 9 0 R 10 0 R] >>
+endobj
+5 0 obj
+<< /Length 290 >>
+stream
+BT /F1 12 Tf 16 TL 72 720 Td (Course Reader: Introduction to Data Structures) Tj T* (Edition 1 - synthetic sample document for ORBIT) Tj T* () Tj T* (Chapter 1: Arrays) Tj T* (An array stores items next to each other in memory.) Tj T* (Reading item i takes the same time for every i.) Tj ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 7 0 R /Resources << /Font << /F1 3 0 R >> >> /Annots [11 0 R] >>
+endobj
+7 0 obj
+<< /Length 164 >>
+stream
+BT /F1 12 Tf 16 TL 72 720 Td (Chapter 2: Hash tables) Tj T* (A hash table maps keys to values using a hash function.) Tj T* (Average lookup time is constant.) Tj ET
+endstream
+endobj
+8 0 obj
+<< /Type /Annot /Subtype /Link /Rect [72 60 320 76] /Border [0 0 0] /A << /S /URI /URI (https://example.com/course-reader) >> >>
+endobj
+9 0 obj
+<< /Type /Annot /Subtype /Highlight /Rect [72 640 380 654] /QuadPoints [72 654 380 654 72 640 380 640] /C [1 0.85 0.2] /CA 0.5 /T (Sample Student) /Contents (Key definition) /M (D:20260210183000Z) /F 4 >>
+endobj
+10 0 obj
+<< /Type /Annot /Subtype /Text /Rect [500 650 520 670] /Name /Comment /Open false /T (Sample Student) /Contents (Exam: know this!) /M (D:20260210184500Z) /F 4 >>
+endobj
+11 0 obj
+<< /Type /Annot /Subtype /Highlight /Rect [72 702 400 716] /QuadPoints [72 716 400 716 72 702 400 702] /C [1 0.85 0.2] /CA 0.5 /T (Sample Student) /Contents (Compare with trees) /M (D:20260210183000Z) /F 4 >>
+endobj
+xref
+0 12
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000121 00000 n 
+0000000191 00000 n 
+0000000346 00000 n 
+0000000687 00000 n 
+0000000830 00000 n 
+0000001045 00000 n 
+0000001189 00000 n 
+0000001409 00000 n 
+0000001587 00000 n 
+trailer
+<< /Size 12 /Root 1 0 R /ID [<f8261d277393c59cdfdf19f5f936042c> <08fed56d6013d940437db20ff37dc8da>] >>
+startxref
+1812
+%%EOF

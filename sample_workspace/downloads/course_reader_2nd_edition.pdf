@@ -1,0 +1,58 @@
+%PDF-1.7
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [4 0 R 6 0 R 8 0 R] /Count 3 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 5 0 R /Resources << /Font << /F1 3 0 R >> >> /Annots [10 0 R] >>
+endobj
+5 0 obj
+<< /Length 313 >>
+stream
+BT /F1 12 Tf 16 TL 72 720 Td (Course Reader: Introduction to Data Structures) Tj T* (Edition 2 - synthetic sample document for ORBIT) Tj T* () Tj T* (Chapter 1: Arrays and dynamic arrays) Tj T* (An array stores items next to each other in memory.) Tj T* (Dynamic arrays grow by copying into a bigger block.) Tj ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 7 0 R /Resources << /Font << /F1 3 0 R >> >> >>
+endobj
+7 0 obj
+<< /Length 164 >>
+stream
+BT /F1 12 Tf 16 TL 72 720 Td (Chapter 2: Hash tables) Tj T* (A hash table maps keys to values using a hash function.) Tj T* (Average lookup time is constant.) Tj ET
+endstream
+endobj
+8 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 9 0 R /Resources << /Font << /F1 3 0 R >> >> >>
+endobj
+9 0 obj
+<< /Length 110 >>
+stream
+BT /F1 12 Tf 16 TL 72 720 Td (Chapter 3: Trees) Tj T* (A binary search tree keeps keys in sorted order.) Tj ET
+endstream
+endobj
+10 0 obj
+<< /Type /Annot /Subtype /Link /Rect [72 60 320 76] /Border [0 0 0] /A << /S /URI /URI (https://example.com/course-reader) >> >>
+endobj
+xref
+0 11
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000127 00000 n 
+0000000197 00000 n 
+0000000340 00000 n 
+0000000704 00000 n 
+0000000830 00000 n 
+0000001045 00000 n 
+0000001171 00000 n 
+0000001332 00000 n 
+trailer
+<< /Size 11 /Root 1 0 R /ID [<24361559315cb6d571042359053114c0> <24361559315cb6d571042359053114c0>] >>
+startxref
+1477
+%%EOF

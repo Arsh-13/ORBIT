@@ -1,12 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { scanSampleWorkspace } from './api'
-import { DuplicateGroups } from './components/DuplicateGroups'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { choosePreferredCopy, resetPreferredCopy, saveKeepRules, scanSampleWorkspace } from './api'
 import { FileTable } from './components/FileTable'
 import { Header } from './components/Header'
+import { KeepRulesEditor } from './components/KeepRulesEditor'
+import { Recommendations } from './components/Recommendations'
 import { EmptyResultState, ErrorState, IdleState, IssueList, LoadingState } from './components/StatusStates'
 import { SummaryCards } from './components/SummaryCards'
 import { formatDate } from './format'
-import type { ScanReport } from './types'
+import type { KeepRules, ScanReport } from './types'
 
 // The screen is always in exactly one of these states.
 type ScanState =
@@ -35,13 +36,16 @@ function useTheme(): [Theme, () => void] {
 export default function App() {
   const [theme, toggleTheme] = useTheme()
   const [state, setState] = useState<ScanState>({ status: 'idle' })
+  const [busy, setBusy] = useState<string | null>(null) // which action is running: a group's sha256, or 'rules'
+  const [actionError, setActionError] = useState<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
 
-  const runScan = useCallback(async () => {
+  /** Scan the workspace. `quiet` keeps the current results on screen while refreshing. */
+  const runScan = useCallback(async (quiet = false) => {
     abortRef.current?.abort()
     const controller = new AbortController()
     abortRef.current = controller
-    setState({ status: 'loading' })
+    if (!quiet) setState({ status: 'loading' })
     try {
       const report = await scanSampleWorkspace(controller.signal)
       setState({ status: 'done', report, scannedAt: new Date().toISOString() })
@@ -53,7 +57,28 @@ export default function App() {
 
   useEffect(() => () => abortRef.current?.abort(), [])
 
+  /** Run a preference change, then refresh the results so the new recommendation shows. */
+  const runAction = useCallback(
+    async (key: string, action: () => Promise<unknown>) => {
+      setBusy(key)
+      setActionError(null)
+      try {
+        await action()
+        await runScan(true)
+      } catch (err) {
+        setActionError(err instanceof Error ? err.message : String(err))
+      } finally {
+        setBusy(null)
+      }
+    },
+    [runScan],
+  )
+
   const report = state.status === 'done' ? state.report : null
+  const preferredPaths = useMemo(
+    () => new Set(report?.recommendations.map((r) => r.preferred_path) ?? []),
+    [report],
+  )
 
   return (
     <div className="app">
@@ -74,14 +99,14 @@ export default function App() {
               </p>
             )}
           </div>
-          <button className="button button-primary" onClick={runScan} disabled={state.status === 'loading'}>
+          <button className="button button-primary" onClick={() => runScan()} disabled={state.status === 'loading'}>
             {state.status === 'loading' ? 'Scanning…' : report ? 'Scan again' : 'Scan sample workspace'}
           </button>
         </section>
 
         {state.status === 'idle' && <IdleState />}
         {state.status === 'loading' && <LoadingState />}
-        {state.status === 'error' && <ErrorState message={state.message} onRetry={runScan} />}
+        {state.status === 'error' && <ErrorState message={state.message} onRetry={() => runScan()} />}
 
         {report && report.files.length === 0 && <EmptyResultState />}
         {report && report.files.length > 0 && (
@@ -89,16 +114,37 @@ export default function App() {
             {report.truncated && (
               <div className="notice">This scan stopped at the file limit. Only part of the folder is shown.</div>
             )}
+            {actionError && (
+              <div className="notice notice-error" role="alert">
+                {actionError}
+                <button className="chip-remove" onClick={() => setActionError(null)} aria-label="Dismiss">
+                  ×
+                </button>
+              </div>
+            )}
             <SummaryCards summary={report.summary} />
             <IssueList title="Files that could not be read" issues={report.errors} tone="warn" />
             <IssueList title="Skipped items (symlinks or special files)" issues={report.skipped} tone="info" />
-            <DuplicateGroups groups={report.duplicate_groups} />
-            <FileTable files={report.files} />
+            <KeepRulesEditor
+              rules={report.keep_rules}
+              saving={busy === 'rules'}
+              onSave={(rules: KeepRules) => runAction('rules', () => saveKeepRules(rules))}
+            />
+            <Recommendations
+              recommendations={report.recommendations}
+              groups={report.duplicate_groups}
+              busyGroup={busy}
+              onChoose={(sha, path) => runAction(sha, () => choosePreferredCopy(sha, path))}
+              onReset={(sha) => runAction(sha, () => resetPreferredCopy(sha))}
+            />
+            <FileTable files={report.files} preferredPaths={preferredPaths} />
           </>
         )}
       </main>
 
-      <footer className="footer muted small">ORBIT · Milestone 1 · Read-only scanner · Runs only on this computer</footer>
+      <footer className="footer muted small">
+        ORBIT · Milestone 2 · Read-only recommendations · Runs only on this computer
+      </footer>
     </div>
   )
 }

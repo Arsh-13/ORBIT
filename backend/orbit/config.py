@@ -21,3 +21,8 @@ MAX_FILES_PER_SCAN = 10_000
 
 # The API only answers requests addressed to these hostnames (blocks DNS-rebinding tricks).
 ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
+
+# ORBIT's own database (your keep-rules and "preferred copy" choices). It lives OUTSIDE
+# sample_workspace and is git-ignored. ORBIT writes here, never to the files it scans.
+DATA_DIR = PROJECT_ROOT / "data" / "local"
+DB_PATH = DATA_DIR / "orbit.sqlite3"

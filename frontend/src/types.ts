@@ -36,6 +36,43 @@ export interface ScanSummary {
   error_count: number
 }
 
+// ---- Milestone 2: recommendations (see backend/orbit/recommend.py) ----
+
+export interface Signal {
+  text: string
+  tone: 'positive' | 'negative' | 'neutral'
+}
+
+export interface CopyAssessment {
+  relative_path: string
+  absolute_path: string
+  modified_at: string
+  is_preferred: boolean
+  is_suggested: boolean
+  signals: Signal[]
+}
+
+export type Confidence = 'user' | 'high' | 'medium' | 'low'
+
+export interface Recommendation {
+  group_id: number
+  sha256: string
+  preferred_path: string
+  suggested_path: string
+  source: 'rules' | 'user'
+  confidence: Confidence
+  decided_by: string[]
+  reasons: string[]
+  caveats: string[]
+  reclaimable_bytes: number
+  copies: CopyAssessment[]
+}
+
+export interface KeepRules {
+  preferred_folders: string[]
+  avoid_folders: string[]
+}
+
 export interface ScanReport {
   root: string
   truncated: boolean
@@ -44,4 +81,6 @@ export interface ScanReport {
   duplicate_groups: DuplicateGroup[]
   skipped: ScanIssue[]
   errors: ScanIssue[]
+  recommendations: Recommendation[]
+  keep_rules: KeepRules
 }

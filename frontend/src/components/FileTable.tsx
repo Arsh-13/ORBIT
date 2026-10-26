@@ -11,7 +11,7 @@ const SORTERS: Record<SortKey, (a: FileRecord, b: FileRecord) => number> = {
   modified: (a, b) => b.modified_at.localeCompare(a.modified_at),
 }
 
-export function FileTable({ files }: { files: FileRecord[] }) {
+export function FileTable({ files, preferredPaths }: { files: FileRecord[]; preferredPaths: Set<string> }) {
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<Filter>('all')
   const [sortKey, setSortKey] = useState<SortKey>('name')
@@ -97,7 +97,14 @@ export function FileTable({ files }: { files: FileRecord[] }) {
                     </td>
                     <td data-label="Duplicate">
                       {group !== null ? (
-                        <span className="group-badge">Group {group}</span>
+                        <span className="dup-cell">
+                          <span className="group-badge">Group {group}</span>
+                          {preferredPaths.has(file.relative_path) ? (
+                            <span className="role role-keep">★ Keep</span>
+                          ) : (
+                            <span className="role role-extra">Extra copy</span>
+                          )}
+                        </span>
                       ) : (
                         <span className="muted">—</span>
                       )}
